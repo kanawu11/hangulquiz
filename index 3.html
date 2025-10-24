@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>韓国語フラッシュカードゲーム</title>
+  <style>
+    body{font-family:sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;text-align:center;padding:40px}
+    h1{margin-bottom:20px}
+    .hidden{display:none}
+    .card{background:#e74c3c;margin:40px auto;width:300px;height:200px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:2rem;cursor:pointer;transition:transform .5s;transform-style:preserve-3d;position:relative}
+    .card.flipped{transform:rotateY(180deg)}
+    .front,.back{position:absolute;width:100%;height:100%;border-radius:20px;backface-visibility:hidden;display:flex;align-items:center;justify-content:center}
+    .back{background:#3498db;transform:rotateY(180deg)}
+    button{margin:10px;padding:10px 20px;font-size:1rem;border:none;border-radius:20px;color:#fff;cursor:pointer}
+    .correct{background:#4CAF50}.incorrect{background:#f44336}
+    .tts{position:absolute;top:-30px;width:40px;height:40px;border-radius:50%;border:none;color:#fff;font-weight:bold;cursor:pointer}
+    .tts.jp{left:-50px;background:#e67e22}.tts.kr{right:-50px;background:#16a085}
+  </style>
+</head>
+<body>
+  <h1>🇰🇷 韓国語挨拶フラッシュカード</h1>
+  <section id="home"><button id="startBtn">게임 시작</button></section>
+  <section id="game" class="hidden">
+    <div style="position:relative;display:inline-block">
+      <button class="tts jp" id="speakJP">JP</button>
+      <div class="card" id="card">
+        <div class="front" id="front">こんにちは</div>
+        <div class="back" id="back">안녕하세요</div>
+      </div>
+      <button class="tts kr" id="speakKR">KR</button>
+    </div>
+    <div>
+      <button class="correct" id="correctBtn">正解 ✓</button>
+      <button class="incorrect" id="wrongBtn">不正解 ✗</button>
+    </div>
+  </section>
+  <script>
+    const cards=[{front:"こんにちは",back:"안녕하세요"},{front:"おはようございます",back:"좋은 아침입니다"},{front:"こんばんは",back:"좋은 저녁입니다"},{front:"さようなら",back:"안녕히 가세요"},{front:"ありがとうございます",back:"감사합니다"}];
+    let deck=[...cards];let idx=0;let flipped=false;
+    const home=document.getElementById("home"),game=document.getElementById("game");
+    const card=document.getElementById("card"),front=document.getElementById("front"),back=document.getElementById("back");
+    const correctBtn=document.getElementById("correctBtn"),wrongBtn=document.getElementById("wrongBtn");
+    const speakJP=document.getElementById("speakJP"),speakKR=document.getElementById("speakKR");
+    const startBtn=document.getElementById("startBtn");
+    function speak(txt,lang){if(!("speechSynthesis"in window))return;const u=new SpeechSynthesisUtterance(txt);u.lang=lang;window.speechSynthesis.speak(u);}
+    function load(){const c=deck[idx];front.textContent=c.front;back.textContent=c.back;card.classList.remove("flipped");flipped=false;}
+    function next(){idx++;if(idx>=deck.length)idx=0;load();}
+    function wrong(){const cur=deck[idx];deck.splice(idx,1);deck.push(cur);if(idx>=deck.length)idx=0;load();}
+    card.onclick=()=>{card.classList.toggle("flipped");flipped=!flipped;};
+    correctBtn.onclick=()=>next();wrongBtn.onclick=()=>wrong();
+    speakJP.onclick=()=>speak(deck[idx].front,"ja-JP");speakKR.onclick=()=>speak(deck[idx].back,"ko-KR");
+    startBtn.onclick=()=>{home.classList.add("hidden");game.classList.remove("hidden");load();};
+  </script>
+</body>
+</html>
