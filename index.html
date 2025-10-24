@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>韓国語フラッシュカードゲーム</title>
+  <style>
+    :root{
+      --primaryA:#667eea; --primaryB:#764ba2;
+      --greenA:#4CAF50; --greenB:#45a049;
+      --redA:#f44336; --redB:#d32f2f;
+      --blueA:#3498db; --blueB:#2980b9;
+      --cardW:420px; --cardH:260px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; padding:24px; min-height:100%;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans', Arial, sans-serif;
+      background:linear-gradient(135deg,var(--primaryA) 0%,var(--primaryB) 100%);
+      color:#333;
+    }
+    .container{max-width:900px;margin:0 auto;text-align:center}
+    h1{color:#fff;margin:8px 0 20px;font-size:2.1rem;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+    .progress-bar{background:rgba(255,255,255,.2);border-radius:20px;padding:4px;margin-bottom:16px;backdrop-filter:blur(10px)}
+    .progress-fill{
+      background:linear-gradient(90deg,var(--greenA),var(--greenB));
+      height:20px;border-radius:16px;transition:width .5s ease;
+      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.9rem
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:8px 0}
+    .card-container{perspective:1200px;margin:18px auto;width:var(--cardW);height:var(--cardH)}
+    .flashcard{
+      width:100%;height:100%;position:relative;transform-style:preserve-3d;
+      transition:transform .6s cubic-bezier(.2,.6,.2,1);cursor:pointer;outline:none
+    }
+    .flashcard:focus{box-shadow:0 0 0 3px rgba(255,255,255,.5);border-radius:20px}
+    .flashcard.flipped{transform:rotateY(180deg)}
+    .card-face{
+      position:absolute;inset:0;backface-visibility:hidden;border-radius:20px;
+      display:flex;align-items:center;justify-content:center;text-align:center;
+      font-size:1.9rem;font-weight:800;box-shadow:0 16px 36px rgba(0,0,0,.35);
+      padding:20px;color:#fff; text-wrap:balance;
+    }
+    .card-front{background:linear-gradient(135deg,#e74c3c,#c0392b)}
+    .card-back{background:linear-gradient(135deg,var(--blueA),var(--blueB));transform:rotateY(180deg)}
+    .controls{
+      margin:14px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+      gap:10px;align-items:stretch;justify-items:center
+    }
+    button{
+      background:linear-gradient(135deg,var(--primaryA),var(--primaryB));color:#fff;border:none;
+      padding:12px 16px;border-radius:22px;font-size:1rem;font-weight:700;cursor:pointer;
+      transition:transform .18s ease, box-shadow .18s ease; box-shadow:0 4px 14px rgba(0,0,0,.22);
+      width:100%; max-width:220px
+    }
+    button:hover{transform:translateY(-2px);box-shadow:0 7px 20px rgba(0,0,0,.28)}
+    button:active{transform:translateY(0)}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .correct{background:linear-gradient(135deg,var(--greenA),var(--greenB))!important}
+    .incorrect{background:linear-gradient(135deg,var(--redA),var(--redB))!important}
+    .pill{padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.18)}
+    .stats{background:rgba(255,255,255,.12);backdrop-filter:blur(10px);border-radius:15px;padding:16px;margin:16px 0;color:#fff}
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin-top:8px}
+    .stat-item{text-align:center}
+    .stat-number{font-size:1.7rem;font-weight:800;display:block}
+    .stat-label{font-size:.9rem;opacity:.85}
+    .panel{
+      background:rgba(255,255,255,.14);backdrop-filter:blur(10px);border-radius:14px;padding:14px;color:#fff;
+      min-width:260px; flex:1;
+    }
+    .panel h3{margin:0 0 8px;font-size:1.05rem}
+    .panel small{opacity:.9}
+    .panel label{display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;margin:6px 0}
+    input[type="range"]{width:180px}
+    input[type="url"], input[type="text"]{
+      padding:8px 10px;border-radius:10px;border:none;min-width:260px
+    }
+    .screen{display:none}
+    .screen.active{display:block}
+    .hero{
+      background:rgba(255,255,255,.14);border-radius:18px;padding:18px;color:#fff;backdrop-filter:blur(10px);
+      margin:10px 0;
+    }
+    .completion-message{background:linear-gradient(135deg,var(--greenA),var(--greenB));color:#fff;padding:18px;border-radius:15px;margin:14px 0;font-size:1.05rem;font-weight:800}
+    /* feedback animations */
+    @keyframes pulseWin{
+      0%{transform:scale(1)}
+      30%{transform:scale(1.03)}
+      100%{transform:scale(1)}
+    }
+    @keyframes shakeLose{
+      0%,100%{transform:translateX(0)}
+      25%{transform:translateX(-8px)}
+      50%{transform:translateX(8px)}
+      75%{transform:translateX(-4px)}
+    }
+    .pulse{animation:pulseWin .32s ease}
+    .shake{animation:shakeLose .32s ease}
+    @media (max-width:520px){
+      .card-container{width:92%;height:210px}
+      .card-face{font-size:1.46rem}
+      h1{font-size:1.7rem}
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>🇰🇷 韓国語挨拶フラッシュカード</h1>
+
+    <!-- ========= Home Screen ========= -->
+    <section id="homeScreen" class="screen active" aria-labelledby="homeTitle">
+      <div class="hero">
+        <h2 id="homeTitle" style="margin:0 0 4px">시작하기</h2>
+        <p style="margin:6px 0 10px;opacity:.95">카드를 뒤집으며 한국어 인사를 익혀요. 외부 JSON으로 세트를 바꿀 수도 있어요.</p>
+        <div class="row">
+          <button id="btnStart">게임 시작</button>
+          <button id="btnStartShuffle" class="pill" style="max-width:220px">셔플로 시작</button>
+        </div>
+        <div class="row" style="margin-top:4px">
+          <input type="url" id="homeJsonUrl" placeholder="예: /data/greetings.json"/>
+          <button id="homeLoadUrl" class="pill">URL 불러와서 시작</button>
+        </div>
+        <div class="row" style="margin-top:4px">
+          <input type="file" id="homeJsonFile" accept="application/json"/>
+          <button id="homeLoadFile" class="pill">파일 불러와서 시작</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <!-- 옵션 요약 패널 -->
+        <div class="panel">
+          <h3>⏱️ 자동 넘김 & 효과음</h3>
+          <label><input type="checkbox" id="autoAdvance" checked/> 정답/오답 후 자동 다음</label>
+          <label>딜레이: <input type="range" id="delayRange" min="0" max="2500" step="100" value="800"/>
+            <span id="delayLabel">0.8초</span>
+          </label>
+          <label><input type="checkbox" id="soundOn" checked/> 효과음 사용</label>
+        </div>
+
+        <div class="panel">
+          <h3>🗣️ 발음(TTS)</h3>
+          <label><input type="checkbox" id="autoSpeak"/> 뒤집을 때 자동 발음</label>
+          <small>앞면: 일본어 / 뒷면: 한국어</small>
+        </div>
+
+        <div class="panel">
+          <h3>🃏 셔플 & 데이터</h3>
+          <label><input type="checkbox" id="shuffleOn" checked/> 새 게임 시작 시 셔플</label>
+          <small>홈 또는 게임 화면에서 JSON을 불러올 수 있어요.</small>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= Game Screen ========= -->
+    <section id="gameScreen" class="screen" aria-live="polite">
+      <div class="progress-bar" aria-label="진행률">
+        <div class="progress-fill" id="progressFill" style="width:0%">0 / 0</div>
+      </div>
+
+      <div class="card-container">
+        <div class="flashcard" id="flashcard" role="button" tabindex="0" aria-pressed="false" aria-label="카드 뒤집기">
+          <div class="card-face card-front" id="cardFront">カードをクリックして始めましょう！</div>
+          <div class="card-face card-back" id="cardBack">시작해요!</div>
+        </div>
+      </div>
+
+      <div class="controls" aria-label="메인 컨트롤">
+        <button id="btnFlip" type="button">カードをめくる</button>
+        <button id="btnCorrect" type="button" class="correct">正解 ✓</button>
+        <button id="btnIncorrect" type="button" class="incorrect">不正解 ✗</button>
+        <button id="btnNext" type="button">次のカード</button>
+        <button id="btnShuffle" type="button" class="pill">シャッフル</button>
+        <button id="btnReset" type="button">リセット</button>
+      </div>
+
+      <div class="row">
+        <div class="panel">
+          <h3>🔊 발음</h3>
+          <div class="row" style="gap:8px;justify-content:center">
+            <button id="speakFront" class="pill" type="button">앞면 읽기(日本語)</button>
+            <button id="speakBack" class="pill" type="button">뒷면 읽기(한국어)</button>
+          </div>
+        </div>
+        <div class="panel" style="min-width:280px">
+          <h3>🌐 외부 JSON</h3>
+          <div class="row" style="gap:6px;justify-content:center">
+            <input type="url" id="jsonUrl" placeholder="예: /data/greetings.json"/>
+            <button id="btnLoadUrl" class="pill" type="button">URL 불러오기</button>
+          </div>
+          <div class="row" style="gap:6px;justify-content:center">
+            <input type="file" id="jsonFile" accept="application/json"/>
+            <button id="btnLoadFile" class="pill" type="button">파일 불러오기</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats" aria-label="학습 통계">
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-number" id="correctCount">0</span>
+            <span class="stat-label">正解</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="incorrectCount">0</span>
+            <span class="stat-label">不正解</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="accuracyRate">0%</span>
+            <span class="stat-label">正解率</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="currentCard">0</span>
+            <span class="stat-label">現在のカード</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= Result Screen ========= -->
+    <section id="resultScreen" class="screen" aria-labelledby="resultTitle">
+      <div class="completion-message">🎉 おめでとうございます！すべてのカードを完了しました！</div>
+      <h2 id="resultTitle" style="color:#fff;margin:6px 0 10px">결과 요약</h2>
+
+      <div class="stats">
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-number" id="rTotal">0</span>
+            <span class="stat-label">총 카드</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="rCorrect">0</span>
+            <span class="stat-label">정답</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="rIncorrect">0</span>
+            <span class="stat-label">오답</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="rAccuracy">0%</span>
+            <span class="stat-label">정답률</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls" style="margin-top:10px">
+        <button id="btnReplayAll">다시하기 (전체)</button>
+        <button id="btnReviewWrong" class="incorrect">틀린 것만 복습</button>
+        <button id="btnGoHome" class="pill">홈으로</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ====== 초기 카드 데이터 (폴백) ======
+    let baseDeck = [
+      { front: "こんにちは", back: "안녕하세요" },
+      { front: "おはようございます", back: "좋은 아침입니다" },
+      { front: "こんばんは", back: "좋은 저녁입니다" },
+      { front: "さようなら", back: "안녕히 가세요" },
+      { front: "ありがとうございます", back: "감사합니다" }
+    ];
+
+    // 현재 플레이 중인 덱
+    let deck = baseDeck.slice();
+
+    // ====== 상태 변수 ======
+    let idx = 0;
+    let correct = 0;
+    let incorrect = 0;
+    let flipped = false;
+    let completed = new Set();      // 정답 처리된 인덱스
+    let wrongIndexes = new Set();   // 오답 처리된 원본 인덱스
+    let lock = false;               // 자동넘김 동안 입력 잠금
+    let lastTimer = null;
+
+    // ====== 엘리먼트 ======
+    const flashcard = document.getElementById('flashcard');
+    const cardFront = document.getElementById('cardFront');
+    const cardBack  = document.getElementById('cardBack');
+    const progressFill = document.getElementById('progressFill');
+    const correctCount = document.getElementById('correctCount');
+    const incorrectCount = document.getElementById('incorrectCount');
+    const accuracyRate  = document.getElementById('accuracyRate');
+    const currentCardDisplay = document.getElementById('currentCard');
+
+    // 스크린
+    const homeScreen = document.getElementById('homeScreen');
+    const gameScreen = document.getElementById('gameScreen');
+    const resultScreen = document.getElementById('resultScreen');
+
+    // 홈 컨트롤
+    const btnStart = document.getElementById('btnStart');
+    const btnStartShuffle = document.getElementById('btnStartShuffle');
+    const homeJsonUrl = document.getElementById('homeJsonUrl');
+    const homeLoadUrl = document.getElementById('homeLoadUrl');
+    const homeJsonFile = document.getElementById('homeJsonFile');
+    const homeLoadFile = document.getElementById('homeLoadFile');
+
+    // 게임 컨트롤
+    const btnFlip = document.getElementById('btnFlip');
+    const btnCorrect = document.getElementById('btnCorrect');
+    const btnIncorrect = document.getElementById('btnIncorrect');
+    const btnNext = document.getElementById('btnNext');
+    const btnReset = document.getElementById('btnReset');
+    const btnShuffle = document.getElementById('btnShuffle');
+
+    // 옵션
+    const autoAdvance = document.getElementById('autoAdvance');
+    const delayRange = document.getElementById('delayRange');
+    const delayLabel = document.getElementById('delayLabel');
+    const soundOn = document.getElementById('soundOn');
+    const autoSpeak = document.getElementById('autoSpeak');
+    const shuffleOn = document.getElementById('shuffleOn');
+
+    // TTS
+    const speakFrontBtn = document.getElementById('speakFront');
+    const speakBackBtn  = document.getElementById('speakBack');
+
+    // 외부 JSON (게임 화면)
+    const jsonUrl = document.getElementById('jsonUrl');
+    const btnLoadUrl = document.getElementById('btnLoadUrl');
+    const jsonFile = document.getElementById('jsonFile');
+    const btnLoadFile = document.getElementById('btnLoadFile');
+
+    // 결과 화면
+    const rTotal = document.getElementById('rTotal');
+    const rCorrect = document.getElementById('rCorrect');
+    const rIncorrect = document.getElementById('rIncorrect');
+    const rAccuracy = document.getElementById('rAccuracy');
+    const btnReplayAll = document.getElementById('btnReplayAll');
+    const btnReviewWrong = document.getElementById('btnReviewWrong');
+    const btnGoHome = document.getElementById('btnGoHome');
+
+    // ====== 유틸 ======
+    function showScreen(el){
+      for(const s of [homeScreen, gameScreen, resultScreen]) s.classList.remove('active');
+      el.classList.add('active');
+    }
+    function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+    function shuffleArray(arr){
+      for(let i=arr.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]] = [arr[j],arr[i]];
+      }
+      return arr;
+    }
+    function updateDelayLabel(){
+      const ms = parseInt(delayRange.value,10);
+      delayLabel.textContent = (ms/1000).toFixed(1) + '초';
+    }
+    function speak(text, lang){
+      if(!text) return;
+      if(!('speechSynthesis' in window)) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang;
+      u.rate = 1.0; u.pitch = 1.0;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    }
+
+    // WebAudio 효과음
+    let audioCtx = null;
+    function beepGood(){
+      if(!soundOn.checked) return;
+      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type='sine'; o.frequency.setValueAtTime(880, audioCtx.currentTime);
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.4, audioCtx.currentTime+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime+0.20);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime+0.22);
+    }
+    function beepBad(){
+      if(!soundOn.checked) return;
+      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type='square'; o.frequency.setValueAtTime(220, audioCtx.currentTime);
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.35, audioCtx.currentTime+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime+0.25);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime+0.27);
+    }
+
+    function validateDeck(json){
+      // [{front:string, back:string}]
+      if(!Array.isArray(json)) return false;
+      return json.every(x => x && typeof x.front==='string' && typeof x.back==='string');
+    }
+
+    // ====== 코어 로직 ======
+    function loadCard(){
+      const c = deck[idx];
+      cardFront.textContent = c?.front ?? '';
+      cardBack.textContent  = c?.back ?? '';
+      flipped = false;
+      flashcard.classList.remove('flipped','pulse','shake');
+      flashcard.setAttribute('aria-pressed','false');
+      updateDisplay();
+      if(autoSpeak.checked) speak(deck[idx]?.front,'ja-JP');
+    }
+
+    function flipCard(){
+      if(lock) return;
+      flipped = !flipped;
+      flashcard.classList.toggle('flipped');
+      flashcard.setAttribute('aria-pressed', flipped?'true':'false');
+      if(autoSpeak.checked){
+        if(flipped) speak(deck[idx]?.back, 'ko-KR'); else speak(deck[idx]?.front, 'ja-JP');
+      }
+    }
+
+    function markCorrect(){
+      if(lock) return;
+      correct++; completed.add(idx);
+      flashcard.classList.remove('shake');
+      flashcard.classList.add('pulse');
+      updateStats(); beepGood();
+      endOrAdvance();
+    }
+
+    function markIncorrect(){
+      if(lock) return;
+      incorrect++; wrongIndexes.add(idx);
+      flashcard.classList.remove('pulse');
+      flashcard.classList.add('shake');
+      updateStats(); beepBad();
+      endOrAdvance();
+    }
+
+    function endOrAdvance(){
+      if (autoAdvance.checked) advanceWithDelay(); else checkCompletion();
+    }
+
+    function nextCard(){
+      if(lock) return;
+      idx = (idx + 1) % deck.length;
+      loadCard();
+      checkCompletion();
+    }
+
+    function checkCompletion(){
+      if (completed.size === deck.length){
+        const total = correct + incorrect;
+        const acc = total>0 ? Math.round((correct/total)*100) : 0;
+        document.getElementById('rTotal').textContent = deck.length;
+        document.getElementById('rCorrect').textContent = correct;
+        document.getElementById('rIncorrect').textContent = incorrect;
+        document.getElementById('rAccuracy').textContent = acc + '%';
+        document.getElementById('btnReviewWrong').disabled = wrongIndexes.size === 0;
+        showScreen(resultScreen);
+      }
+    }
+
+    function advanceWithDelay(){
+      const delay = Math.max(0, Math.min(2500, parseInt(delayRange.value,10)));
+      lock = true;
+      clearTimeout(lastTimer);
+      lastTimer = setTimeout(()=>{
+        lock = false;
+        nextCard();
+      }, delay);
+    }
+
+    function updateStats(){
+      const total = correct + incorrect;
+      const acc = total>0 ? Math.round((correct/total)*100) : 0;
+      correctCount.textContent = correct;
+      incorrectCount.textContent = incorrect;
+      accuracyRate.textContent = acc + '%';
+    }
+
+    function updateDisplay(){
+      currentCardDisplay.textContent = deck.length ? (idx+1) : 0;
+      const prog = deck.length ? (completed.size / deck.length) * 100 : 0;
+      progressFill.style.width = prog + '%';
+      progressFill.textContent = `${completed.size} / ${deck.length}`;
+    }
+
+    function resetState(){
+      idx = 0; correct = 0; incorrect = 0; flipped = false;
+      completed.clear(); wrongIndexes.clear();
+      clearTimeout(lastTimer); lock = false;
+    }
+
+    function startGame({shuffle=false} = {}){
+      deck = baseDeck.slice();
+      if (shuffle) deck = shuffleArray(deck);
+      resetState();
+      showScreen(gameScreen);
+      loadCard(); updateStats();
+    }
+
+    function replayAll(){
+      deck = baseDeck.slice();
+      if (document.getElementById('shuffleOn').checked) deck = shuffleArray(deck);
+      resetState();
+      showScreen(gameScreen);
+      loadCard(); updateStats();
+    }
+
+    function reviewWrongOnly(){
+      if (wrongIndexes.size===0) return;
+      const wrongArray = Array.from(wrongIndexes.values());
+      const newDeck = wrongArray.map(i => deck[i]).filter(Boolean);
+      deck = newDeck.length ? newDeck : deck.slice();
+      resetState();
+      showScreen(gameScreen);
+      loadCard(); updateStats();
+    }
+
+    // ====== 이벤트 바인딩 ======
+    btnStart.addEventListener('click', ()=> startGame({shuffle:false}));
+    btnStartShuffle.addEventListener('click', ()=> startGame({shuffle:true}));
+
+    homeLoadUrl.addEventListener('click', async ()=>{
+      const url = homeJsonUrl.value.trim();
+      if(!url) return alert('불러올 JSON URL을 입력해주세요.');
+      try{
+        const res = await fetch(url, {cache:'no-store'});
+        if(!res.ok) throw new Error(res.status+' '+res.statusText);
+        const data = await res.json();
+        if(!validateDeck(data)) throw new Error('JSON 스키마가 올바르지 않습니다. [{front, back}] 배열이어야 합니다.');
+        baseDeck = data.slice();
+        startGame({shuffle:true});
+      }catch(err){
+        console.error(err); alert('JSON 불러오기 실패: '+err.message);
+      }
+    });
+
+    homeLoadFile.addEventListener('click', async ()=>{
+      const f = homeJsonFile.files?.[0];
+      if(!f) return alert('불러올 JSON 파일을 선택해주세요.');
+      try{
+        const text = await f.text();
+        const data = JSON.parse(text);
+        if(!validateDeck(data)) throw new Error('JSON 스키마가 올바르지 않습니다. [{front, back}] 배열이어야 합니다.');
+        baseDeck = data.slice();
+        startGame({shuffle:true});
+      }catch(err){
+        console.error(err); alert('JSON 파싱 실패: '+err.message);
+      }
+    });
+
+    flashcard.addEventListener('click', flipCard);
+    flashcard.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); flipCard(); }
+    });
+    document.getElementById('btnFlip').addEventListener('click', flipCard);
+    btnCorrect.addEventListener('click', markCorrect);
+    btnIncorrect.addEventListener('click', markIncorrect);
+    btnNext.addEventListener('click', nextCard);
+    btnReset.addEventListener('click', ()=> { startGame({shuffle:document.getElementById('shuffleOn').checked}); });
+    btnShuffle.addEventListener('click', ()=>{ deck = shuffleArray(deck.slice()); resetState(); showScreen(gameScreen); loadCard(); updateStats(); });
+
+    speakFrontBtn.addEventListener('click', ()=> speak(deck[idx]?.front, 'ja-JP'));
+    speakBackBtn.addEventListener('click',  ()=> speak(deck[idx]?.back,  'ko-KR'));
+
+    delayRange.addEventListener('input', ()=>{
+      const ms = parseInt(delayRange.value,10);
+      delayLabel.textContent = (ms/1000).toFixed(1) + '초';
+    });
+    (function(){ const ms = parseInt(delayRange.value,10); delayLabel.textContent = (ms/1000).toFixed(1) + '초'; })();
+
+    btnLoadUrl.addEventListener('click', async ()=>{
+      const url = jsonUrl.value.trim();
+      if(!url) return alert('불러올 JSON URL을 입력해주세요.');
+      try{
+        const res = await fetch(url, {cache:'no-store'});
+        if(!res.ok) throw new Error(res.status+' '+res.statusText);
+        const data = await res.json();
+        if(!validateDeck(data)) throw new Error('JSON 스키마가 올바르지 않습니다. [{front, back}] 배열이어야 합니다.');
+        baseDeck = data.slice();
+        startGame({shuffle:document.getElementById('shuffleOn').checked});
+      }catch(err){
+        console.error(err); alert('JSON 불러오기 실패: '+err.message);
+      }
+    });
+
+    btnLoadFile.addEventListener('click', async ()=>{
+      const f = jsonFile.files?.[0];
+      if(!f) return alert('불러올 JSON 파일을 선택해주세요.');
+      try{
+        const text = await f.text();
+        const data = JSON.parse(text);
+        if(!validateDeck(data)) throw new Error('JSON 스키마가 올바르지 않습니다. [{front, back}] 배열이어야 합니다.');
+        baseDeck = data.slice();
+        startGame({shuffle:document.getElementById('shuffleOn').checked});
+      }catch(err){
+        console.error(err); alert('JSON 파싱 실패: '+err.message);
+      }
+    });
+
+    document.addEventListener('keydown', (e)=>{
+      if(!gameScreen.classList.contains('active')) return;
+      if(e.key===' ' || e.key==='Enter'){ e.preventDefault(); flipCard(); }
+      else if(e.key==='ArrowRight'){ e.preventDefault(); nextCard(); }
+      else if(e.key==='1'){ e.preventDefault(); markCorrect(); }
+      else if(e.key==='2'){ e.preventDefault(); markIncorrect(); }
+      else if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='r'){ e.preventDefault(); startGame({shuffle:document.getElementById('shuffleOn').checked}); }
+    });
+
+    document.getElementById('btnReplayAll').addEventListener('click', replayAll);
+    document.getElementById('btnReviewWrong').addEventListener('click', reviewWrongOnly);
+    document.getElementById('btnGoHome').addEventListener('click', ()=> showScreen(homeScreen));
+
+    showScreen(homeScreen);
+  </script>
+</body>
+</html>
